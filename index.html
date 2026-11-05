@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>減薬まめログ</title>
+<meta name="description" content="減薬中の用量・離脱症状・気分・歩数や睡眠を記録し、グラフと受診用レポートにまとめるアプリ。記録は端末の中だけに保存されます。">
+<meta name="theme-color" content="#EEF4F1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121916" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="まめログ">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<style>
+/* Layout: one narrow phone column, sticky title bar, five-tab bar fixed to the bottom. Soft mint ground, pink for "you did it", semantic heat for symptoms. */
+:root{
+  --bg:#EEF4F1; --surface:#FFFFFF; --surface2:#E3ECE8; --ink:#1F2D29; --muted:#5E6F69; --line:#CFDBD6;
+  --mint:#23907F; --mint-soft:#D3EEE8; --pink:#DE5F7A; --pink-soft:#FBE1E7; --amber:#B97A12; --amber-soft:#FBEED3;
+  --danger:#C23E37; --danger-soft:#FBE2DF;
+  --s0:#E3ECE8; --s1:#F4D9A6; --s2:#EFA88D; --s3:#D3645A; --s-ink:#1F2D29;
+  --font-display:"Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif;
+  --font-body:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","Meiryo","Noto Sans JP",system-ui,sans-serif;
+  --r:18px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121916; --surface:#1B2421; --surface2:#24302C; --ink:#E4EEEA; --muted:#97A8A2; --line:#2F3D38;
+  --mint:#5CC7B3; --mint-soft:#1D3833; --pink:#F08BA1; --pink-soft:#3A2630; --amber:#E7B455; --amber-soft:#3A3020;
+  --danger:#F0736B; --danger-soft:#3E2321;
+  --s0:#24302C; --s1:#6A5428; --s2:#8C4E3B; --s3:#B2473F; --s-ink:#E4EEEA; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121916; --surface:#1B2421; --surface2:#24302C; --ink:#E4EEEA; --muted:#97A8A2; --line:#2F3D38;
+  --mint:#5CC7B3; --mint-soft:#1D3833; --pink:#F08BA1; --pink-soft:#3A2630; --amber:#E7B455; --amber-soft:#3A3020;
+  --danger:#F0736B; --danger-soft:#3E2321;
+  --s0:#24302C; --s1:#6A5428; --s2:#8C4E3B; --s3:#B2473F; --s-ink:#E4EEEA; color-scheme:dark}
+
+*{box-sizing:border-box}
+html{padding-top:env(safe-area-inset-top,0px);color-scheme:light}
+body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:0 calc(92px + env(safe-area-inset-bottom,0px));-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:560px;margin:0 auto}
+h1,h2,h3,.disp{font-family:var(--font-display);text-wrap:balance}
+h2{font-size:17px;margin:0;font-weight:800}
+h3{font-size:14px;margin:0;font-weight:700;color:var(--muted)}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:12px 10px;display:flex;align-items:center;gap:10px}
+.top h1{font-size:20px;margin:0;font-weight:800;letter-spacing:.02em}
+.top h1 small{font-size:12px;color:var(--muted);font-weight:500;margin-left:6px}@media (max-width:440px){.top h1 small{display:none}}
+.syncdot{margin-left:auto;white-space:nowrap;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.syncdot i{width:8px;height:8px;border-radius:50%;background:var(--mint);display:inline-block}
+.syncdot.local i{background:var(--amber)}
+.stack{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--surface);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.num{font-variant-numeric:tabular-nums}
+.banner{border-radius:var(--r);padding:12px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:14px}
+.banner.sample{background:var(--amber-soft)}
+.banner.dangerb{background:var(--danger-soft);flex-direction:column;align-items:stretch}
+.banner.dangerb strong{color:var(--danger)}
+button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
+.btn{background:var(--mint);color:var(--surface);border-radius:999px;padding:10px 18px;font-weight:700;font-family:var(--font-display)}
+.btn.ghost{background:var(--surface2);color:var(--ink)}
+.btn.warn{background:var(--danger);color:var(--surface)}
+.btn:disabled{opacity:.45;cursor:default}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spread{justify-content:space-between}
+
+/* Today hero */
+.hero{display:flex;gap:14px;align-items:center;background:var(--mint-soft);border-radius:var(--r);padding:14px}
+.hero svg{flex:none;width:84px;height:84px}
+.hero .say{min-width:0}
+.hero .say b{font-family:var(--font-display);font-size:16px;display:block}
+.datenav{display:flex;align-items:center;gap:8px}
+.datenav button{width:40px;height:40px;border-radius:50%;background:var(--surface);font-size:18px;font-weight:700}
+.datenav .d{font-family:var(--font-display);font-weight:800;font-size:18px;min-width:0;flex:1;text-align:center}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{background:var(--surface2);border-radius:999px;padding:4px 10px;font-size:12.5px;font-weight:500}
+.chip.pink{background:var(--pink-soft);color:var(--ink)}
+.chip.mint{background:var(--mint-soft)}
+
+fieldset{border:none;margin:0;padding:0;min-width:0}
+fieldset:disabled{opacity:.6}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
+input[type=number],input[type=text],input[type=date],input[type=tel],textarea,select{font:inherit;color:var(--ink);background:var(--surface2);border:1px solid transparent;border-radius:12px;padding:10px 12px;width:100%;min-width:0}
+textarea{min-height:84px;resize:vertical}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+
+/* 0–10 slider */
+.scale{display:flex;flex-direction:column;gap:6px}
+.scale .lab{display:flex;justify-content:space-between;align-items:baseline}
+.scale .val{font-family:var(--font-display);font-weight:800;font-size:22px;color:var(--mint)}
+.scale .val.unset{font-size:13px;color:var(--muted);font-weight:500}
+.scale .ends{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:34px;background:transparent}
+input[type=range]::-webkit-slider-runnable-track{height:10px;border-radius:999px;background:var(--surface2)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:30px;border-radius:50%;background:var(--surface);border:3px solid var(--mint);margin-top:-10px;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+input[type=range]::-moz-range-track{height:10px;border-radius:999px;background:var(--surface2)}
+input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:var(--surface);border:3px solid var(--mint)}
+.scale.unset input[type=range]::-webkit-slider-thumb{border-color:var(--line)}
+
+/* symptom 0–3 */
+.sym{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding-block:6px;border-bottom:1px solid var(--line)}
+.sym:last-child{border-bottom:none}
+.seg{display:grid;grid-template-columns:repeat(4,44px);gap:4px}
+.seg button{height:40px;border-radius:12px;background:var(--surface2);font-weight:700;font-family:var(--font-display);font-variant-numeric:tabular-nums}
+.seg button[aria-pressed="true"][data-v="0"]{background:var(--mint-soft);box-shadow:inset 0 0 0 2px var(--mint)}
+.seg button[aria-pressed="true"][data-v="1"]{background:var(--s1);color:var(--s-ink)}
+.seg button[aria-pressed="true"][data-v="2"]{background:var(--s2);color:var(--s-ink)}
+.seg button[aria-pressed="true"][data-v="3"]{background:var(--s3);color:var(--surface)}
+.scorebar{display:flex;align-items:baseline;gap:8px}
+.scorebar .big{font-family:var(--font-display);font-weight:800;font-size:28px}
+.check{display:flex;gap:10px;align-items:flex-start;padding-block:6px}
+.check input{width:22px;height:22px;flex:none;margin-top:2px;accent-color:var(--danger)}
+
+/* charts */
+.chart{width:100%;height:auto;display:block}
+.c-grid{stroke:var(--line);stroke-width:1}
+.c-axis{fill:var(--muted);font-size:10px;font-family:var(--font-body)}
+.c-dose{fill:none;stroke:var(--mint);stroke-width:2.5}
+.c-dosefill{fill:var(--mint-soft);stroke:none}
+.c-symbar{fill:var(--s2)}
+.c-symbar.hi{fill:var(--s3)}
+.c-avg{fill:none;stroke:var(--pink);stroke-width:2.5}
+.c-mood{fill:none;stroke:var(--mint);stroke-width:2.2}
+.c-anx{fill:none;stroke:var(--pink);stroke-width:2.2}
+.c-steps{fill:var(--mint-soft)}
+.c-sleep{fill:none;stroke:var(--amber);stroke-width:2.2}
+.c-rhr{fill:none;stroke:var(--pink);stroke-width:2;stroke-dasharray:4 3}
+.c-marker{stroke:var(--muted);stroke-width:1.2;stroke-dasharray:3 3}
+.c-mlabel{fill:var(--muted);font-size:9px;font-family:var(--font-body)}
+.c-danger{fill:var(--danger)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:4px;border-radius:2px;display:inline-block}
+.seg2{display:flex;background:var(--surface2);border-radius:999px;padding:3px;gap:2px}
+.seg2 button{padding:6px 12px;border-radius:999px;font-size:13px;font-weight:700}
+.seg2 button[aria-pressed="true"]{background:var(--surface)}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.stat{background:var(--surface2);border-radius:14px;padding:10px 12px;min-width:0}
+.stat .k{font-size:12px;color:var(--muted)}
+.stat .v{font-family:var(--font-display);font-weight:800;font-size:20px;font-variant-numeric:tabular-nums}
+.stat .v small{font-size:12px;font-weight:500;color:var(--muted)}
+
+/* plan */
+.stage{display:grid;grid-template-columns:28px minmax(0,1.3fr) minmax(0,1fr) 64px 36px;gap:8px;align-items:center}
+.stage .n{font-family:var(--font-display);font-weight:800;color:var(--muted);text-align:center}
+.stage .pct{font-size:12.5px;font-variant-numeric:tabular-nums;text-align:right}
+.stage .pct.up{color:var(--amber);font-weight:700}
+.stage button.x{width:36px;height:36px;border-radius:50%;background:var(--surface2);font-weight:700;color:var(--muted)}
+.taper{display:flex;flex-direction:column;gap:6px}
+.tbar{display:grid;grid-template-columns:64px minmax(0,1fr) 56px;gap:8px;align-items:center;font-size:12.5px}
+.tbar .b{height:12px;border-radius:999px;background:var(--surface2);overflow:hidden}
+.tbar .b i{display:block;height:100%;background:var(--mint);border-radius:999px}
+
+/* tables */
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-size:12px;color:var(--muted);font-weight:500}
+.memo{border-left:3px solid var(--pink);padding-left:10px;font-size:14px}
+.memo .dt{font-size:12px;color:var(--muted)}
+
+details summary{cursor:pointer;font-weight:700}
+ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+code.k{background:var(--surface2);border-radius:6px;padding:1px 6px;font-size:13px}
+
+/* tab bar */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);
+  padding:6px max(16px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+nav.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+nav.tabs button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;border-radius:14px;font-size:11.5px;font-weight:700;color:var(--muted);font-family:var(--font-display)}
+nav.tabs button svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+nav.tabs button[aria-current="page"]{color:var(--mint);background:var(--mint-soft)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:13px;z-index:20;max-width:90vw}
+@media (prefers-reduced-motion:no-preference){.hero svg .bob{animation:bob 3.2s ease-in-out infinite;transform-origin:50% 90%}@keyframes bob{50%{transform:translateY(-2px) rotate(-2deg)}}}
+@media (max-width:380px){.seg{grid-template-columns:repeat(4,38px)}.stage{grid-template-columns:22px minmax(0,1.3fr) minmax(0,1fr) 54px 32px;gap:6px}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>減薬まめログ<small>記録して、見て、相談する</small></h1>
+    <div class="syncdot" id="sync"><i></i><span>準備中</span></div>
+  </header>
+  <main id="main" class="stack"></main>
+</div>
+<nav class="tabs" aria-label="画面切り替え"><div class="in" id="tabs"></div></nav>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function(){
+"use strict";
+/* ---------- constants ---------- */
+const SYMS=[["dizzy","めまい・ふらつき"],["zap","シャンビリ（電気が走る感じ）"],["head","頭痛"],["nausea","吐き気・胃腸の不調"],["sweat","発汗・ほてり・寒気"],["tremor","震え・こわばり"],["palp","動悸"],["sens","音や光への過敏"],["fatigue","だるさ・疲労"]];
+const DANGERS=[["suicidal","死にたい気持ち・自傷衝動が出た／強まった"],["seizure","けいれん・意識がぼんやりする・錯乱"],["nosleep","2〜3日以上ほとんど眠れていない"],["chest","強い動悸・胸痛・失神・高熱"],["relapse","元の病気の明らかな再発"]];
+const SYM_MAX=SYMS.length*3;
+const TABS=[["today","きょう",'<path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/><circle cx="12" cy="12" r="4"/>'],
+ ["graph","グラフ",'<path d="M4 19V5M4 19h16"/><path d="M7 15l4-5 3 3 5-6"/>'],
+ ["plan","減量計画",'<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/>'],
+ ["visit","受診用",'<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>'],
+ ["settings","設定",'<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 0 0-2-1.2L14.3 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.3-.9-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9c.6.5 1.3.9 2 1.2l.4 2.6h4l.4-2.6c.7-.3 1.4-.7 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/>']];
+const LSKEY="genyaku-mamelog-v1";
+const APP_VERSION="1.0.0";
+const LOCAL_DL={save:async function(o){const fn=o.filename;const type=/\.html$/.test(fn)?"text/html":/\.csv$/.test(fn)?"text/csv":"application/json";
+  const b=new Blob([o.data],{type:type+";charset=utf-8"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),5000);return {status:"saved"};}};
+
+/* ---------- date utils ---------- */
+const pad=n=>String(n).padStart(2,"0");
+const ymd=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const parseD=s=>{const p=s.split("-").map(Number);return new Date(p[0],p[1]-1,p[2]);};
+const addDays=(s,n)=>{const d=parseD(s);d.setDate(d.getDate()+n);return ymd(d);};
+const diffDays=(a,b)=>Math.round((parseD(a)-parseD(b))/864e5);
+const md=s=>{const d=parseD(s);return (d.getMonth()+1)+"/"+d.getDate();};
+const wd=s=>"日月火水木金土"[parseD(s).getDay()];
+const TODAY=ymd(new Date());
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const isNum=v=>typeof v==="number"&&isFinite(v);
+const avg=a=>{const v=a.filter(isNum);return v.length?v.reduce((x,y)=>x+y,0)/v.length:null;};
+const fmt=(v,d=1)=>isNum(v)?(Math.round(v*Math.pow(10,d))/Math.pow(10,d)).toLocaleString("ja-JP",{maximumFractionDigits:d}):"—";
+
+/* ---------- state ---------- */
+const S={tab:"today",date:TODAY,range:28,visitFrom:addDays(TODAY,-28),started:false,backend:"pending",loaded:false,confirmWipe:false};
+const REAL=new Map();
+let SAMPLE=null;
+const dirty=new Set();
+const timers={};
+const chains={};
+let col=null, DL=null;
+let needRender=false;
+
+function inSample(){return !S.started && REAL.size===0;}
+function data(){return inSample()?SAMPLE:REAL;}
+function dayOf(date){return data().get("d-"+date)||null;}
+function allDays(){return [...data().values()].filter(o=>o&&o.date).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);}
+function stages(){const p=data().get("plan");return ((p&&p.stages)||[]).slice().sort((a,b)=>a.date<b.date?-1:1);}
+function settings(){return data().get("settings")||{};}
+function doseFor(date){let d=null;for(const s of stages()){if(s.date<=date&&isNum(s.dose))d=s.dose;}return d;}
+function stageAt(date){let i=-1;stages().forEach((s,k)=>{if(s.date<=date)i=k;});return i;}
+function symScore(o){if(!o||!o.sym)return null;const v=Object.values(o.sym).filter(isNum);return v.length?v.reduce((a,b)=>a+b,0):null;}
+function hasDanger(o){return !!(o&&o.danger&&o.danger.length);}
+
+/* ---------- sample data (clearly marked) ---------- */
+function makeSample(){
+  const m=new Map();let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646;};
+  const start=addDays(TODAY,-48);
+  const st=[{date:start,dose:20},{date:addDays(TODAY,-34),dose:15},{date:addDays(TODAY,-20),dose:11},{date:addDays(TODAY,-6),dose:8}];
+  m.set("plan",{stages:st});
+  m.set("settings",{drug:"サンプル薬A（20mg錠）",doctor:"〇〇クリニック 山田先生",tel:"03-0000-0000",pharmacy:"〇〇薬局"});
+  const memos={9:"減量3日目。シャンビリが少し増えた。",23:"2回目の減量。めまいで外出を短めにした。",26:"だいぶ落ち着いてきた。",39:"眠りが浅い。先生に伝える。",45:"減量4日目。前回よりはまし。"};
+  for(let i=0;i<=48;i++){
+    const date=addDays(start,i);let bump=0;
+    st.forEach((s,k)=>{if(k===0)return;const dd=diffDays(date,s.date);if(dd>=0&&dd<12){const amp=k===2?1.25:1;bump+=amp*Math.max(0,(dd<3?(dd+1)/3:Math.exp(-(dd-2)/3)));}});
+    const r=()=>rnd()-.5;
+    const lvl=b=>Math.max(0,Math.min(3,Math.round(b+r()*.9)));
+    const sym={dizzy:lvl(bump*2.2),zap:lvl(bump*2.4-.2),head:lvl(bump*1.2),nausea:lvl(bump*1.0-.2),sweat:lvl(bump*.9-.2),tremor:lvl(bump*.5-.3),palp:lvl(bump*.8-.2),sens:lvl(bump*1.1-.3),fatigue:lvl(bump*1.8+.3)};
+    const o={date};
+    let d=null;for(const s of st){if(s.date<=date)d=s.dose;}o.dose=d;
+    o.sym=sym;
+    o.mood=Math.max(0,Math.min(10,Math.round(6.3-bump*2.2+r()*1.6)));
+    o.anxiety=Math.max(0,Math.min(10,Math.round(3+bump*2.5+r()*1.6)));
+    o.sleepQ=Math.max(0,Math.min(10,Math.round(6.5-bump*2+r()*1.6)));
+    o.sleepH=Math.round((6.9-bump*.9+r()*.8)*10)/10;
+    o.steps=Math.round((7200-bump*2600+r()*1800)/10)*10;
+    o.rhr=Math.round(61+bump*4+r()*2);
+    o.danger=[];o.memo=memos[i]||"";
+    m.set("d-"+date,o);
+  }
+  return m;
+}
+SAMPLE=makeSample();
+
+/* ---------- storage ---------- */
+function saveLocal(){try{const o={};REAL.forEach((v,k)=>{o[k]=v;});localStorage.setItem(LSKEY,JSON.stringify(o));}catch(e){}}
+function loadLocal(){try{const raw=localStorage.getItem(LSKEY);if(raw){const o=JSON.parse(raw);Object.keys(o).forEach(k=>REAL.set(k,o[k]));}}catch(e){}}
+function put(id,obj){
+  REAL.set(id,obj);
+  if(S.backend!=="db"){saveLocal();return;}
+  dirty.add(id);clearTimeout(timers[id]);
+  timers[id]=setTimeout(()=>flush(id),500);
+}
+function flush(id){
+  chains[id]=(chains[id]||Promise.resolve()).then(()=>{
+    const v=REAL.get(id);
+    return v?col.doc(id).set(JSON.parse(JSON.stringify(v))):col.doc(id).delete();
+  }).then(()=>{dirty.delete(id);},e=>{dirty.delete(id);dbErr(e);});
+  return chains[id];
+}
+function remove(id){
+  REAL.delete(id);
+  if(S.backend!=="db"){saveLocal();return Promise.resolve();}
+  clearTimeout(timers[id]);dirty.add(id);return flush(id);
+}
+function dbErr(e){
+  const c=e&&e.code;
+  if(c==="quota_exceeded")toast("保存容量の上限です。古い記録をバックアップして整理してください。");
+  else if(c==="invalid_argument")toast("保存できませんでした。この画面を編集できる権限がない可能性があります。");
+  else toast("保存に失敗しました。通信状態を確認してください。");
+}
+function setSync(){
+  const el=document.getElementById("sync");
+  el.className="syncdot"+(S.backend==="db"?"":" local");
+  el.querySelector("span").textContent=S.backend==="db"?(S.loaded?"クラウドに保存":"読み込み中"):S.backend==="local"?"この端末に保存":"準備中";
+}
+async function initStore(){
+  let ok=false;
+  try{
+    if(window.claude&&typeof window.claude.use==="function"){
+      const [db,user,dl]=await Promise.all([window.claude.use("db"),window.claude.use("user"),window.claude.use("downloads")]);
+      DL=dl||null;
+      const uid=user?await user.id():null;
+      if(db&&uid){
+        col=db.collection("data/users/"+uid);S.backend="db";ok=true;setSync();
+        const slow=setTimeout(()=>{if(!S.loaded){toast("記録の読み込みに時間がかかっています。");}},10000);
+        col.onSnapshot(snap=>{
+          const keep=new Map();dirty.forEach(id=>{if(REAL.has(id))keep.set(id,REAL.get(id));});
+          REAL.clear();snap.docs.forEach(d=>{if(d.exists)REAL.set(d.id,d.data());});
+          keep.forEach((v,k)=>REAL.set(k,v));
+          if(!snap.metadata.fromCache){S.loaded=true;clearTimeout(slow);}
+          setSync();softRender();
+        },err=>{clearTimeout(slow);S.loaded=true;dbErr(err);setSync();});
+      }
+    }
+  }catch(e){}
+  if(!ok){S.backend="local";DL=DL||LOCAL_DL;loadLocal();S.loaded=true;setSync();render();try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(e){}}
+}
+function softRender(){
+  const a=document.activeElement;
+  if(a&&document.getElementById("main").contains(a)&&(a.tagName==="TEXTAREA"||(a.tagName==="INPUT"&&a.type!=="checkbox"&&a.type!=="range"))){needRender=true;return;}
+  render();
+}
+document.addEventListener("focusout",()=>{if(needRender){needRender=false;setTimeout(render,0);}});
+
+/* ---------- toast ---------- */
+let tt=null;
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>{t.hidden=true;},2600);}
+
+/* ---------- mascot (original character "まめ") ---------- */
+function mascot(face){
+  const eyes=face==="care"?'<path d="M37 50q4 4 8 0M55 50q4 4 8 0" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round"/>'
+    :'<circle cx="41" cy="49" r="3.4" fill="var(--ink)"/><circle cx="59" cy="49" r="3.4" fill="var(--ink)"/>';
+  const mouth=face==="happy"?'<path d="M43 58q7 8 14 0" fill="var(--pink)" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/>'
+    :face==="care"?'<path d="M46 60q4 2 8 0" fill="none" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round"/>'
+    :'<path d="M45 58q5 5 10 0" fill="none" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round"/>';
+  return '<svg viewBox="0 0 100 100" aria-hidden="true"><g class="bob">'+
+    '<path d="M50 24c-2-9 4-15 13-15-1 9-6 14-13 15z" fill="var(--mint)"/><path d="M50 24c1-7-3-12-10-13 0 7 4 11 10 13z" fill="var(--mint)" opacity=".7"/>'+
+    '<path d="M50 24v6" stroke="var(--mint)" stroke-width="3" stroke-linecap="round"/>'+
+    '<ellipse cx="50" cy="58" rx="30" ry="28" fill="var(--surface)" stroke="var(--mint)" stroke-width="3"/>'+
+    '<ellipse cx="34" cy="58" rx="5" ry="3" fill="var(--pink)" opacity=".35"/><ellipse cx="66" cy="58" rx="5" ry="3" fill="var(--pink)" opacity=".35"/>'+
+    eyes+mouth+(face==="care"?'<path d="M76 34l3-6M82 40l6-2" stroke="var(--pink)" stroke-width="2.4" stroke-linecap="round"/>':'')+
+    '</g></svg>';
+}
+
+/* ---------- charts ---------- */
+function rolling(vals,n){return vals.map((_,i)=>avg(vals.slice(Math.max(0,i-n+1),i+1)));}
+function niceMax(m){if(!(m>0))return 1;const p=Math.pow(10,Math.floor(Math.log10(m)));const f=m/p;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*p;}
+function chart(o){
+  const W=360,H=o.h||190,pl=28,pr=o.right?30:8,pt=12,pb=22,n=o.days.length;
+  const iw=W-pl-pr,ih=H-pt-pb;
+  const bw=n>0?iw/n:iw;const x=i=>pl+bw*(i+.5);
+  const yL=v=>pt+ih-(v-o.left.min)/(o.left.max-o.left.min)*ih;
+  const yR=o.right?v=>pt+ih-(v-o.right.min)/(o.right.max-o.right.min)*ih:null;
+  let s='<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(o.label)+'">';
+  const tk=o.left.ticks||4;
+  for(let k=0;k<=tk;k++){const v=o.left.min+(o.left.max-o.left.min)*k/tk;const y=yL(v);
+    s+='<line class="c-grid" x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y+'" y2="'+y+'"/><text class="c-axis" x="'+(pl-6)+'" y="'+(y+4)+'" text-anchor="end">'+(o.left.fmt?o.left.fmt(v):fmt(v,1))+'</text>';
+    if(o.right){const vr=o.right.min+(o.right.max-o.right.min)*k/tk;s+='<text class="c-axis" x="'+(W-pr+6)+'" y="'+(y+4)+'">'+(o.right.fmt?o.right.fmt(vr):fmt(vr,1))+'</text>';}}
+  const step=Math.max(1,Math.ceil(n/6));
+  for(let i=0;i<n;i+=step){s+='<text class="c-axis" x="'+x(i)+'" y="'+(H-6)+'" text-anchor="middle">'+md(o.days[i])+'</text>';}
+  (o.series||[]).forEach(se=>{
+    const y=se.axis==="right"?yR:yL;const base=se.axis==="right"?o.right.min:o.left.min;
+    if(se.kind==="bar"){se.vals.forEach((v,i)=>{if(!isNum(v))return;const h=Math.max(0,y(base)-y(v));const cls=se.hi&&v>=se.hi?se.cls+" hi":se.cls;
+      s+='<rect class="'+cls+'" x="'+(x(i)-bw*.36)+'" y="'+y(v)+'" width="'+(bw*.72)+'" height="'+h+'" rx="'+Math.min(3,bw*.3)+'"/>';});}
+    else if(se.kind==="step"){let d="",open=false;se.vals.forEach((v,i)=>{if(!isNum(v)){open=false;return;}const x0=pl+bw*i,x1=pl+bw*(i+1);
+      d+=(open?"L":"M")+x0+" "+y(v)+"L"+x1+" "+y(v);open=true;});s+='<path class="'+se.cls+'" d="'+d+'"/>';}
+    else{let d="",open=false;se.vals.forEach((v,i)=>{if(!isNum(v)){open=false;return;}d+=(open?"L":"M")+x(i)+" "+y(v);open=true;});s+='<path class="'+se.cls+'" d="'+d+'"/>';}
+  });
+  (o.markers||[]).forEach(mk=>{const xx=pl+bw*mk.i;s+='<line class="c-marker" x1="'+xx+'" x2="'+xx+'" y1="'+pt+'" y2="'+(pt+ih)+'"/><text class="c-mlabel" x="'+(xx+3)+'" y="'+(pt+9)+'">'+esc(mk.t)+'</text>';});
+  (o.dangers||[]).forEach(i=>{s+='<circle class="c-danger" cx="'+x(i)+'" cy="'+(pt+ih+1)+'" r="3.5"/>';});
+  return s+'</svg>';
+}
+function windowDays(from,to){const out=[];for(let d=from;d<=to;d=addDays(d,1))out.push(d);return out;}
+function chartsFor(days){
+  const rec=days.map(d=>dayOf(d));
+  const dose=days.map((d,i)=>rec[i]&&isNum(rec[i].dose)?rec[i].dose:doseFor(d));
+  const sc=rec.map(symScore);
+  const markers=[];stages().forEach((s,k)=>{const i=days.indexOf(s.date);if(i>0||(i===0&&k>0))markers.push({i,t:"→"+fmt(s.dose,2)});});
+  const dangers=[];rec.forEach((o,i)=>{if(hasDanger(o))dangers.push(i);});
+  const maxDose=niceMax(Math.max(1,...dose.filter(isNum))/3)*3;
+  const c1=chart({label:"用量と離脱症状スコア",days,left:{min:0,max:SYM_MAX,ticks:3,fmt:v=>Math.round(v)},right:{min:0,max:maxDose,fmt:v=>fmt(v,1)},
+    series:[{kind:"bar",cls:"c-symbar",hi:10,vals:sc},{kind:"line",cls:"c-avg",vals:rolling(sc,7)},{kind:"step",axis:"right",cls:"c-dose",vals:dose}],markers,dangers});
+  const c2=chart({label:"気分と不安",days,h:150,left:{min:0,max:10,ticks:2,fmt:v=>Math.round(v)},
+    series:[{kind:"line",cls:"c-mood",vals:rolling(rec.map(o=>o&&o.mood),3)},{kind:"line",cls:"c-anx",vals:rolling(rec.map(o=>o&&o.anxiety),3)}],markers});
+  const steps=rec.map(o=>o&&isNum(o.steps)?o.steps/1000:null);
+  const c3=chart({label:"歩数と睡眠時間",days,h:150,left:{min:0,max:niceMax(Math.max(4,...steps.filter(isNum))),ticks:2,fmt:v=>fmt(v,0)+"千"},right:{min:0,max:10,ticks:2,fmt:v=>Math.round(v)+"h"},
+    series:[{kind:"bar",cls:"c-steps",vals:steps},{kind:"line",axis:"right",cls:"c-sleep",vals:rec.map(o=>o&&o.sleepH)}],markers});
+  return {c1,c2,c3,sc,dose,rec};
+}
+
+/* ---------- render: shell ---------- */
+function renderTabs(){
+  document.getElementById("tabs").innerHTML=TABS.map(t=>'<button data-tab="'+t[0]+'"'+(S.tab===t[0]?' aria-current="page"':'')+'><svg viewBox="0 0 24 24">'+t[2]+'</svg>'+t[1]+'</button>').join("");
+}
+function sampleBanner(){
+  return inSample()?'<div class="banner sample"><span style="flex:1;min-width:0"><b>サンプルデータを表示中です。</b>架空の48日分の記録で、画面の見え方を試せます。</span><button class="btn" data-act="start">自分の記録を始める</button></div>':"";
+}
+function render(){
+  renderTabs();
+  const m=document.getElementById("main");
+  const f={today:vToday,graph:vGraph,plan:vPlan,visit:vVisit,settings:vSettings}[S.tab];
+  m.innerHTML=sampleBanner()+f();
+  if(S.tab==="today")syncToday();
+}
+
+/* ---------- today ---------- */
+function scaleRow(key,label,lo,hi,o){
+  const v=o&&isNum(o[key])?o[key]:null;
+  return '<div class="scale'+(v==null?" unset":"")+'" data-scale="'+key+'"><div class="lab"><label for="r-'+key+'"><b>'+label+'</b></label><span class="val'+(v==null?" unset":"")+'">'+(v==null?"未記録":v)+'</span></div>'+
+    '<input type="range" id="r-'+key+'" min="0" max="10" step="1" value="'+(v==null?5:v)+'" data-range="'+key+'"><div class="ends"><span>0 '+lo+'</span><span>'+hi+' 10</span></div></div>';
+}
+function vToday(){
+  const date=S.date,o=dayOf(date)||{},si=stageAt(date),st=stages();
+  const planned=doseFor(date);
+  const sc=symScore(o);
+  let face="calm",say="きょうの記録、ゆっくりでいいよ。",sub="全部うめなくても大丈夫。";
+  if(hasDanger(o)){face="care";say="つらいサインが出ているね。";sub="記録より先に、下の連絡先に相談してね。";}
+  else if(sc!=null&&sc>=10){face="care";say="しんどい日だね。";sub="記録できただけで十分えらいよ。";}
+  else if(sc!=null){face="happy";say="記録できたね、おつかれさま。";sub="このデータが受診のときの力になるよ。";}
+  let chips="";
+  if(si>=0){const since=diffDays(date,st[si].date);chips+='<span class="chip mint">'+(si===0?"記録開始から":"減量から")+' '+(since+1)+'日目</span>';
+    if(si>0&&isNum(st[si-1].dose)&&st[si-1].dose>0){chips+='<span class="chip">前段階比 −'+fmt((1-st[si].dose/st[si-1].dose)*100,0)+'%</span>';}}
+  if(isNum(planned))chips+='<span class="chip">計画の用量 '+fmt(planned,2)+' mg</span>';
+  const dis=inSample()?" disabled":"";
+  const danger=hasDanger(o)?dangerBox():"";
+  return '<div class="hero">'+mascot(face)+'<div class="say"><b>'+say+'</b><span class="small muted">'+sub+'</span></div></div>'+
+  '<div class="datenav"><button data-act="prev" aria-label="前の日">‹</button><div class="d num">'+md(date)+'（'+wd(date)+'）'+(date===TODAY?'<span class="small muted"> きょう</span>':'')+'</div><button data-act="next" aria-label="次の日"'+(date>=TODAY?" disabled":"")+'>›</button></div>'+
+  (chips?'<div class="chips">'+chips+'</div>':'')+danger+
+  '<fieldset class="stack"'+dis+'>'+
+  '<section class="card"><h2>のんだ量</h2><div class="grid2"><label class="f">1日の合計（mg）<input type="number" inputmode="decimal" step="0.01" min="0" id="in-dose" data-num="dose" value="'+(isNum(o.dose)?o.dose:"")+'" placeholder="'+(isNum(planned)?fmt(planned,2):"")+'"></label>'+
+  '<div class="row" style="align-self:end">'+(isNum(planned)&&!isNum(o.dose)?'<button class="btn ghost" type="button" data-act="useplan">計画どおり（'+fmt(planned,2)+'）</button>':'')+'</div></div></section>'+
+  '<section class="card"><div class="row spread"><h2>からだの症状</h2><div class="scorebar"><span class="small muted">合計</span><span class="big num" id="symtotal">'+(sc==null?"—":sc)+'</span><span class="small muted">/ '+SYM_MAX+'</span></div></div>'+
+  '<p class="small muted" style="margin:0">0 なし・1 軽い・2 生活に支障・3 強く支障</p><div>'+
+  SYMS.map(([k,l])=>{const v=o.sym&&isNum(o.sym[k])?o.sym[k]:null;return '<div class="sym"><span>'+l+'</span><div class="seg" role="group" aria-label="'+l+'">'+[0,1,2,3].map(n=>'<button type="button" data-sym="'+k+'" data-v="'+n+'" aria-pressed="'+(v===n)+'">'+n+'</button>').join("")+'</div></div>';}).join("")+
+  '</div></section>'+
+  '<section class="card"><h2>こころと睡眠</h2>'+scaleRow("mood","気分","しずむ","よい",o)+scaleRow("anxiety","不安・イライラ","ない","とても強い",o)+scaleRow("sleepQ","睡眠の質","最悪","ぐっすり",o)+'</section>'+
+  '<section class="card"><div class="row spread"><h2>ヘルスケアの数値</h2><button class="btn ghost small" type="button" data-act="toimport">まとめて取り込む</button></div>'+
+  '<div class="grid3"><label class="f">歩数<input type="number" inputmode="numeric" data-num="steps" id="in-steps" value="'+(isNum(o.steps)?o.steps:"")+'"></label>'+
+  '<label class="f">睡眠（時間）<input type="number" inputmode="decimal" step="0.1" data-num="sleepH" id="in-sleepH" value="'+(isNum(o.sleepH)?o.sleepH:"")+'"></label>'+
+  '<label class="f">安静時心拍<input type="number" inputmode="numeric" data-num="rhr" id="in-rhr" value="'+(isNum(o.rhr)?o.rhr:"")+'"></label></div></section>'+
+  '<section class="card"><h2>危険サイン</h2><p class="small muted" style="margin:0">当てはまるものがあれば、記録より先に医師・相談窓口へ。</p>'+
+  DANGERS.map(([k,l])=>'<label class="check"><input type="checkbox" data-danger="'+k+'" id="dg-'+k+'"'+(o.danger&&o.danger.includes(k)?" checked":"")+'><span>'+l+'</span></label>').join("")+'</section>'+
+  '<section class="card"><h2>きょうのひとこと</h2><textarea id="in-memo" data-text="memo" placeholder="数値にならない気づき、先生に伝えたいこと">'+esc(o.memo||"")+'</textarea></section>'+
+  '</fieldset>';
+}
+function dangerBox(){
+  const s=settings();
+  return '<div class="banner dangerb" role="alert"><strong class="disp">いますぐ相談してください</strong>'+
+  '<div class="small">救急：<b class="num">119</b>　救急安心センター：<b class="num">#7119</b><br>よりそいホットライン（24時間）：<b class="num">0120-279-338</b>'+(s.doctor||s.tel?'<br>主治医：'+esc(s.doctor||"")+' <b class="num">'+esc(s.tel||"")+'</b>':'')+'</div></div>';
+}
+function syncToday(){
+  document.querySelectorAll("[data-range]").forEach(r=>{r.addEventListener("input",()=>{const k=r.dataset.range;const box=r.closest(".scale");box.classList.remove("unset");const v=box.querySelector(".val");v.classList.remove("unset");v.textContent=r.value;
+    setField(k,Number(r.value),false);});});
+}
+function curDay(){const id="d-"+S.date;const o=REAL.get(id);return o?JSON.parse(JSON.stringify(o)):{date:S.date};}
+function setField(k,v,rerender){
+  if(inSample())return;
+  const o=curDay();
+  if(v===""||v==null||(typeof v==="number"&&!isFinite(v)))delete o[k];else o[k]=v;
+  o.updatedAt=new Date().toISOString();
+  put("d-"+S.date,o);
+  if(rerender)render();
+}
+
+/* ---------- graph ---------- */
+function vGraph(){
+  const days=allDays();
+  const last=TODAY;let from=S.range?addDays(last,-(S.range-1)):(days[0]?days[0].date:addDays(last,-27));
+  const win=windowDays(from,last);
+  const c=chartsFor(win);
+  const st=stages();const curDose=doseFor(TODAY);const first=st[0]?st[0].dose:null;
+  const si=stageAt(TODAY);
+  const a7=avg(windowDays(addDays(TODAY,-6),TODAY).map(d=>symScore(dayOf(d))));
+  const p7=avg(windowDays(addDays(TODAY,-13),addDays(TODAY,-7)).map(d=>symScore(dayOf(d))));
+  const stat=(k,v,u)=>'<div class="stat"><div class="k">'+k+'</div><div class="v">'+v+(u?' <small>'+u+'</small>':'')+'</div></div>';
+  return '<section class="card"><div class="row spread"><h2>いまの状況</h2></div><div class="stats">'+
+   stat("現在の用量",fmt(curDose,2),"mg")+stat("開始時からの減少",isNum(curDose)&&first?"−"+fmt((1-curDose/first)*100,0):"—","%")+
+   stat("直近の減量",si>0?diffDays(TODAY,st[si].date)+"日前":"—",si>0&&st[si-1].dose?"前段階比 −"+fmt((1-st[si].dose/st[si-1].dose)*100,0)+"%":"")+
+   stat("症状の平均（7日）",fmt(a7,1),isNum(p7)?"前週 "+fmt(p7,1):"")+'</div></section>'+
+  '<div class="row spread"><h2>グラフ</h2><div class="seg2" role="group" aria-label="期間">'+[[28,"4週"],[84,"12週"],[0,"全期間"]].map(([v,l])=>'<button data-range-set="'+v+'" aria-pressed="'+(S.range===v)+'">'+l+'</button>').join("")+'</div></div>'+
+  '<section class="card"><h3>用量と離脱症状</h3>'+c.c1+'<div class="legend"><span><i style="background:var(--s2)"></i>症状スコア（日）</span><span><i style="background:var(--pink)"></i>7日平均</span><span><i style="background:var(--mint)"></i>用量 mg（右軸）</span><span><i style="background:var(--danger);width:8px;height:8px;border-radius:50%"></i>危険サイン</span></div>'+
+  '<p class="small muted" style="margin:0">点線は減量した日です。減量の数日後に山ができて、その後下がっていくかを見ます。</p></section>'+
+  '<section class="card"><h3>気分と不安（3日平均）</h3>'+c.c2+'<div class="legend"><span><i style="background:var(--mint)"></i>気分</span><span><i style="background:var(--pink)"></i>不安・イライラ</span></div></section>'+
+  '<section class="card"><h3>歩数と睡眠</h3>'+c.c3+'<div class="legend"><span><i style="background:var(--mint-soft);height:8px"></i>歩数（千歩）</span><span><i style="background:var(--amber)"></i>睡眠時間（右軸）</span></div></section>';
+}
+
+/* ---------- plan ---------- */
+function vPlan(){
+  const st=stages();const dis=inSample()?" disabled":"";
+  const maxD=Math.max(1,...st.map(s=>s.dose||0));
+  let prevPct=null;
+  const rows=st.map((s,i)=>{let pct="",up=false;
+    if(i>0&&isNum(st[i-1].dose)&&st[i-1].dose>0&&isNum(s.dose)){const p=(1-s.dose/st[i-1].dose)*100;pct="−"+fmt(p,0)+"%";if(prevPct!=null&&p>prevPct+0.5)up=true;prevPct=p;}
+    return '<div class="stage"><span class="n">'+(i+1)+'</span><input type="date" aria-label="開始日" value="'+esc(s.date)+'" data-stage="'+i+'" data-sf="date"><input type="number" inputmode="decimal" step="0.01" min="0" aria-label="1日用量 mg" value="'+(isNum(s.dose)?s.dose:"")+'" data-stage="'+i+'" data-sf="dose"><span class="pct'+(up?" up":"")+'">'+(pct||(i===0?"開始":""))+'</span><button class="x" type="button" data-delstage="'+i+'" aria-label="この段階を削除">×</button></div>';}).join("");
+  const bars=st.map(s=>'<div class="tbar"><span class="num">'+md(s.date)+'</span><div class="b"><i style="width:'+((s.dose||0)/maxD*100)+'%"></i></div><span class="num" style="text-align:right">'+fmt(s.dose,2)+' mg</span></div>').join("");
+  return '<section class="card"><h2>医師と決めた減量計画</h2><p class="small muted" style="margin:0">用量の変更は必ず主治医と相談して決め、その内容をここに入力します。アプリは次の量を決めません。</p>'+
+  '<fieldset class="stack"'+dis+'><div class="stage small muted"><span></span><span>開始日</span><span>1日用量 mg</span><span style="text-align:right">前段階比</span><span></span></div>'+(rows||'<p class="muted small">まだ段階がありません。最初の用量（いまの量）から追加してください。</p>')+
+  '<div class="row"><button class="btn" type="button" data-act="addstage">段階を追加</button></div></fieldset>'+
+  (st.length>1?'<p class="small muted" style="margin:0"><span style="color:var(--amber);font-weight:700">オレンジ</span>の段階は、前の段階より減らす割合が大きくなっています。量が少なくなるほど同じ mg でも割合は大きくなるので、受診時の相談材料にしてください。</p>':'')+'</section>'+
+  (st.length?'<section class="card"><h3>用量の流れ</h3><div class="taper">'+bars+'</div></section>':'');
+}
+
+/* ---------- visit ---------- */
+function weekStart(s){const d=parseD(s);d.setDate(d.getDate()-((d.getDay()+6)%7));return ymd(d);}
+function weeklyRows(from,to){
+  const map=new Map();
+  windowDays(from,to).forEach(d=>{const w=weekStart(d);if(!map.has(w))map.set(w,[]);map.get(w).push(d);});
+  return [...map.entries()].map(([w,ds])=>{const r=ds.map(dayOf);
+    return {w,dose:avg(ds.map((d,i)=>r[i]&&isNum(r[i].dose)?r[i].dose:doseFor(d))),sym:avg(r.map(symScore)),symMax:Math.max(-1,...r.map(symScore).filter(isNum)),
+      mood:avg(r.map(o=>o&&o.mood)),anx:avg(r.map(o=>o&&o.anxiety)),sleepH:avg(r.map(o=>o&&o.sleepH)),steps:avg(r.map(o=>o&&o.steps)),rhr:avg(r.map(o=>o&&o.rhr)),
+      danger:r.filter(hasDanger).length,n:r.filter(Boolean).length};});
+}
+function visitModel(){
+  const from=S.visitFrom,to=TODAY;
+  const win=windowDays(from,to);
+  const c=chartsFor(win);
+  const rows=weeklyRows(from,to);
+  const memos=win.map(dayOf).filter(o=>o&&o.memo);
+  const dangers=win.map(dayOf).filter(hasDanger);
+  const recCount=win.map(dayOf).filter(Boolean).length;
+  return {from,to,win,c,rows,memos,dangers,recCount};
+}
+function weeklyTable(rows){
+  return '<table><thead><tr><th>週（月曜〜）</th><th>用量 mg</th><th>症状 平均</th><th>症状 最大</th><th>気分</th><th>不安</th><th>睡眠 h</th><th>歩数</th><th>安静時心拍</th><th>危険</th><th>記録日</th></tr></thead><tbody>'+
+  rows.map(r=>'<tr><td>'+md(r.w)+'</td><td>'+fmt(r.dose,2)+'</td><td>'+fmt(r.sym,1)+'</td><td>'+(r.symMax>=0?r.symMax:"—")+'</td><td>'+fmt(r.mood,1)+'</td><td>'+fmt(r.anx,1)+'</td><td>'+fmt(r.sleepH,1)+'</td><td>'+fmt(r.steps,0)+'</td><td>'+fmt(r.rhr,0)+'</td><td>'+(r.danger||"")+'</td><td>'+r.n+'</td></tr>').join("")+'</tbody></table>';
+}
+function planTable(){
+  const st=stages();
+  return '<table><thead><tr><th>段階</th><th>開始日</th><th>1日用量 mg</th><th>前段階比</th></tr></thead><tbody>'+st.map((s,i)=>'<tr><td>'+(i+1)+'</td><td>'+s.date+'</td><td>'+fmt(s.dose,2)+'</td><td>'+(i>0&&st[i-1].dose?"−"+fmt((1-s.dose/st[i-1].dose)*100,0)+"%":"開始")+'</td></tr>').join("")+'</tbody></table>';
+}
+function vVisit(){
+  const m=visitModel(),s=settings();
+  const canSave=!!DL;
+  return '<section class="card"><h2>受診用まとめ</h2><p class="small muted" style="margin:0">診察室でこの画面を見せるか、レポートを保存して印刷・PDF化してください。</p>'+
+  '<div class="grid2"><label class="f">この日から（前回の受診日など）<input type="date" id="visit-from" value="'+m.from+'" max="'+TODAY+'"></label><div class="f" style="justify-content:end"><span class="small muted num">'+m.win.length+'日間・記録 '+m.recCount+'日</span></div></div>'+
+  '<div class="row">'+(S.backend==="local"?'<button class="btn" data-act="openreport">レポートを開く（印刷・PDF）</button>':'')+(canSave?'<button class="btn'+(S.backend==="local"?" ghost":"")+'" data-act="savereport">レポートを保存（HTML）</button><button class="btn ghost" data-act="savecsv">記録をCSVで保存</button>':'')+'<button class="btn ghost" data-act="copysum">要約をコピー</button></div>'+
+  (canSave?'<p class="small muted" style="margin:0">保存したHTMLをiPhoneで開き、共有メニューの「プリント」からPDFにできます。</p>':'')+'</section>'+
+  '<section class="card"><h3>基本情報</h3><div class="small">薬：'+esc(s.drug||"（設定で入力）")+'<br>主治医：'+esc(s.doctor||"—")+'　薬局：'+esc(s.pharmacy||"—")+'</div>'+(stages().length?'<div class="tablewrap">'+planTable()+'</div>':'')+'</section>'+
+  '<section class="card"><h3>用量と離脱症状</h3>'+m.c.c1+'</section>'+
+  '<section class="card"><h3>週ごとの平均</h3><div class="tablewrap">'+weeklyTable(m.rows)+'</div></section>'+
+  '<section class="card"><h3>危険サインのあった日</h3>'+(m.dangers.length?m.dangers.map(o=>'<div class="small">'+md(o.date)+'：'+o.danger.map(k=>(DANGERS.find(d=>d[0]===k)||[,k])[1]).join("、")+'</div>').join(""):'<p class="small muted" style="margin:0">この期間はありません。</p>')+'</section>'+
+  '<section class="card"><h3>メモ</h3>'+(m.memos.length?m.memos.map(o=>'<div class="memo"><div class="dt">'+md(o.date)+'（'+wd(o.date)+'）</div>'+esc(o.memo)+'</div>').join(""):'<p class="small muted" style="margin:0">この期間のメモはありません。</p>')+'</section>';
+}
+function summaryText(){
+  const m=visitModel(),s=settings();
+  let t="【減薬記録の要約】"+m.from+"〜"+m.to+"\n薬："+(s.drug||"")+"\n";
+  t+="減量計画：\n"+stages().map((x,i)=>"  "+x.date+" "+fmt(x.dose,2)+"mg").join("\n")+"\n週ごとの平均（用量／症状平均・最大／気分／不安／睡眠h／歩数）：\n";
+  m.rows.forEach(r=>{t+="  "+md(r.w)+"〜："+fmt(r.dose,2)+"mg／"+fmt(r.sym,1)+"・"+(r.symMax>=0?r.symMax:"—")+"／"+fmt(r.mood,1)+"／"+fmt(r.anx,1)+"／"+fmt(r.sleepH,1)+"／"+fmt(r.steps,0)+(r.danger?"／危険サイン"+r.danger+"日":"")+"\n";});
+  if(m.memos.length){t+="メモ：\n"+m.memos.map(o=>"  "+md(o.date)+" "+o.memo).join("\n")+"\n";}
+  return t;
+}
+function csvText(){
+  const head=["date","dose_mg","mood","anxiety","sleep_quality","sleep_h","steps","resting_hr"].concat(SYMS.map(s=>"sym_"+s[0]),["sym_total","danger","memo"]);
+  const q=v=>{const s=String(v==null?"":v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  return "﻿"+head.join(",")+"\n"+allDays().map(o=>[o.date,o.dose,o.mood,o.anxiety,o.sleepQ,o.sleepH,o.steps,o.rhr].concat(SYMS.map(s=>o.sym?o.sym[s[0]]:""),[symScore(o),(o.danger||[]).join(" "),o.memo]).map(q).join(",")).join("\n");
+}
+function reportHTML(){
+  const m=visitModel(),s=settings();
+  const css="body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;color:#1F2D29;background:#fff;margin:24px;font-size:13px;line-height:1.6}h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:22px 0 8px;border-bottom:2px solid #23907F;padding-bottom:4px}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{border:1px solid #CFDBD6;padding:4px 6px;text-align:right}th:first-child,td:first-child{text-align:left}th{background:#EEF4F1;font-weight:500}.chart{width:100%;max-width:520px;height:auto;display:block}.c-grid{stroke:#DDE5E1}.c-axis{fill:#5E6F69;font-size:10px}.c-dose{fill:none;stroke:#23907F;stroke-width:2.5}.c-symbar{fill:#EFA88D}.c-symbar.hi{fill:#D3645A}.c-avg{fill:none;stroke:#DE5F7A;stroke-width:2.5}.c-mood{fill:none;stroke:#23907F;stroke-width:2}.c-anx{fill:none;stroke:#DE5F7A;stroke-width:2}.c-steps{fill:#BFE3DB}.c-sleep{fill:none;stroke:#B97A12;stroke-width:2}.c-marker{stroke:#5E6F69;stroke-dasharray:3 3}.c-mlabel{fill:#5E6F69;font-size:10px}.c-danger{fill:#C23E37}.memo{margin:4px 0}.note{color:#5E6F69;font-size:12px}@media print{body{margin:10mm}h2{break-after:avoid}.chart{break-inside:avoid}}";
+  return '<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>減薬記録 '+m.from+'〜'+m.to+'</title><style>'+css+'.noprint{margin:0 0 16px;padding:10px 18px;border:none;border-radius:999px;background:#23907F;color:#fff;font-size:15px;font-weight:700}@media print{.noprint{display:none}}</style></head><body>'+
+  '<button class="noprint" onclick="window.print()">印刷・PDFに保存</button>'+
+  '<h1>減薬記録レポート</h1><div class="note">期間：'+m.from+' 〜 '+m.to+'（'+m.win.length+'日間、記録 '+m.recCount+'日）　作成：'+TODAY+'</div>'+
+  '<p>薬：'+esc(s.drug||"")+'　主治医：'+esc(s.doctor||"")+'　薬局：'+esc(s.pharmacy||"")+'</p>'+
+  '<h2>減量計画</h2>'+planTable()+
+  '<h2>用量と離脱症状スコア</h2>'+m.c.c1+'<div class="note">棒：症状スコア（9項目×0〜3、最大'+SYM_MAX+'）／桃線：7日平均／緑線：用量mg（右軸）／点線：減量日／赤点：危険サイン</div>'+
+  '<h2>気分（緑）と不安（桃）　3日平均・0〜10</h2>'+m.c.c2+
+  '<h2>歩数（棒・千歩）と睡眠時間（線・右軸）</h2>'+m.c.c3+
+  '<h2>週ごとの平均</h2>'+weeklyTable(m.rows)+
+  '<h2>危険サインのあった日</h2>'+(m.dangers.length?m.dangers.map(o=>'<div>'+o.date+'：'+o.danger.map(k=>(DANGERS.find(d=>d[0]===k)||[,k])[1]).join("、")+'</div>').join(""):'<div class="note">なし</div>')+
+  '<h2>本人のメモ</h2>'+(m.memos.length?m.memos.map(o=>'<div class="memo"><b>'+o.date+'</b>　'+esc(o.memo)+'</div>').join(""):'<div class="note">なし</div>')+
+  '<p class="note" style="margin-top:24px">本人の自己記録です。症状スコアは本人の主観評価（0なし・1軽い・2生活に支障・3強く支障）。歩数・睡眠・心拍は iPhone ヘルスケアの値を転記したものです。</p></body></html>';
+}
+
+/* ---------- settings ---------- */
+function vSettings(){
+  const s=settings();const dis=inSample()?" disabled":"";
+  return '<section class="card"><h2>薬と連絡先</h2><fieldset class="stack"'+dis+'>'+
+  '<label class="f">薬の名前・規格<input type="text" id="set-drug" data-set="drug" value="'+esc(s.drug||"")+'" placeholder="例：〇〇錠 10mg"></label>'+
+  '<div class="grid2"><label class="f">主治医・医療機関<input type="text" id="set-doctor" data-set="doctor" value="'+esc(s.doctor||"")+'"></label><label class="f">電話番号<input type="tel" id="set-tel" data-set="tel" value="'+esc(s.tel||"")+'"></label></div>'+
+  '<label class="f">かかりつけ薬局<input type="text" id="set-pharmacy" data-set="pharmacy" value="'+esc(s.pharmacy||"")+'"></label></fieldset></section>'+
+  '<section class="card" id="import"><h2>ヘルスケアの数値を取り込む</h2>'+
+  '<p class="small muted" style="margin:0">1行に1日分を「日付,歩数,睡眠時間,安静時心拍」で貼り付けます。何日分でもまとめて入ります。</p>'+
+  '<fieldset class="stack"'+dis+'><textarea id="imp-text" placeholder="2026-11-05,8123,6.5,62"></textarea><div class="row"><button class="btn" type="button" data-act="import">取り込む</button></div></fieldset>'+
+  '<details><summary>iPhone の「ショートカット」で自動作成する方法</summary><ol class="steps">'+
+  '<li>「ショートカット」アプリで新規ショートカットを作る。</li>'+
+  '<li>「ヘルスケアサンプルを検索」を追加し、種類を<b>歩数</b>、開始日を<b>今日</b>にする。続けて統計を計算するアクションで<b>合計</b>を出す。</li>'+
+  '<li>同じ手順で<b>睡眠分析</b>（昨夜の合計時間）と<b>安静時心拍数</b>（最新1件）を取り出す。睡眠は手入力でも構いません。</li>'+
+  '<li>「テキスト」アクションで <code class="k">日付,歩数,睡眠,心拍</code> の形に並べ、日付は「yyyy-MM-dd」形式にする。</li>'+
+  '<li>「クリップボードにコピー」で終わる。オートメーションで毎晩実行させると、ここに貼るだけになります。</li></ol></details></section>'+
+  '<section class="card"><h2>バックアップ</h2><p class="small muted" style="margin:0">'+(S.backend==="db"?"記録はあなた専用の領域にクラウド保存されます（共有した相手にも見えません）。念のため月1回の保存をおすすめします。":"記録はこの端末の中だけに保存され、外部には送られません。機種変更や削除に備えて、月1回はバックアップを保存してください。")+'</p>'+
+  '<div class="row">'+(DL?'<button class="btn ghost" type="button" data-act="backup">バックアップを保存</button>':'<button class="btn ghost" type="button" data-act="copybackup">バックアップをコピー</button>')+
+  '<label class="btn ghost" for="restore-file" style="display:inline-block">バックアップから戻す</label><input type="file" id="restore-file" accept=".json,application/json" hidden></div></section>'+
+  '<section class="card"><h2>記録をすべて削除</h2>'+(S.confirmWipe?'<p class="small" style="margin:0;color:var(--danger)">本当に削除しますか？元に戻せません。</p><div class="row"><button class="btn warn" type="button" data-act="wipe2">削除する</button><button class="btn ghost" type="button" data-act="wipe0">やめる</button></div>':'<div class="row"><button class="btn ghost" type="button" data-act="wipe1"'+(inSample()?" disabled":"")+'>すべて削除…</button></div>')+'</section>'+
+  '<section class="card"><h2>このアプリについて</h2><p class="small" style="margin:0">減薬まめログ バージョン '+APP_VERSION+'</p><p class="small muted" style="margin:0">記録と見える化のための道具です。診断や用量の判断はしません。用量の変更は必ず主治医と相談してください。入力した記録はこの端末の中だけに保存され、作者を含む外部には送信されません。</p></section>';
+}
+function parseImport(txt){
+  const out=[];
+  txt.split(/\r?\n/).forEach(line=>{
+    const t=line.trim();if(!t)return;
+    const m=t.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);if(!m)return;
+    const date=m[1]+"-"+pad(+m[2])+"-"+pad(+m[3]);
+    const rest=t.replace(m[0],"").split(/[,\t;]+|\s+/).map(x=>x.replace(/[^\d.]/g,"")).filter(x=>x!=="").map(Number);
+    const r={date};
+    if(isNum(rest[0]))r.steps=Math.round(rest[0]);
+    if(isNum(rest[1])){let h=rest[1];if(h>24)h=h/60;r.sleepH=Math.round(h*10)/10;}
+    if(isNum(rest[2]))r.rhr=Math.round(rest[2]);
+    out.push(r);
+  });
+  return out;
+}
+
+/* ---------- actions ---------- */
+async function copy(text,ok){
+  try{await navigator.clipboard.writeText(text);toast(ok);}
+  catch(e){const ta=document.createElement("textarea");ta.value=text;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();try{document.execCommand("copy");toast(ok);}catch(_){toast("コピーできませんでした");}ta.remove();}
+}
+async function save(filename,dataStr){
+  if(!DL){toast("この表示ではファイル保存が使えません");return;}
+  try{await DL.save({filename,data:dataStr});}catch(e){if(e&&e.code==="declined")return;if(e&&e.code==="rate_limited"){toast("少し待ってからもう一度押してください");return;}toast("保存できませんでした");}
+}
+function startReal(){S.started=true;S.date=TODAY;render();toast("記録を始めましょう");}
+
+document.addEventListener("click",e=>{
+  const t=e.target.closest("button,[data-tab]");if(!t)return;
+  if(t.dataset.tab){S.tab=t.dataset.tab;S.confirmWipe=false;try{history.replaceState(null,"","#"+S.tab);}catch(_){}render();window.scrollTo(0,0);return;}
+  const a=t.dataset.act;
+  if(t.dataset.sym){const o=curDay();o.sym=o.sym||{};const v=Number(t.dataset.v);if(o.sym[t.dataset.sym]===v)delete o.sym[t.dataset.sym];else o.sym[t.dataset.sym]=v;o.updatedAt=new Date().toISOString();if(!inSample()){put("d-"+S.date,o);render();}return;}
+  if(t.dataset.rangeSet!=null){S.range=Number(t.dataset.rangeSet);render();return;}
+  if(t.dataset.delstage!=null){const st=stages();st.splice(Number(t.dataset.delstage),1);put("plan",{stages:st});render();return;}
+  switch(a){
+    case "start":startReal();break;
+    case "prev":S.date=addDays(S.date,-1);render();break;
+    case "next":if(S.date<TODAY){S.date=addDays(S.date,1);render();}break;
+    case "useplan":{const p=doseFor(S.date);if(isNum(p))setField("dose",p,true);break;}
+    case "toimport":S.tab="settings";render();setTimeout(()=>{const el=document.getElementById("import");if(el)el.scrollIntoView({block:"start"});},0);break;
+    case "addstage":{const st=stages();const last=st[st.length-1];st.push({date:last?addDays(last.date,14):TODAY,dose:last&&isNum(last.dose)?Math.round(last.dose*0.9*100)/100:null});put("plan",{stages:st});render();break;}
+    case "import":{const ta=document.getElementById("imp-text");const rows=parseImport(ta.value);if(!rows.length){toast("日付の入った行が見つかりません（例：2026-11-05,8123,6.5,62）");break;}
+      rows.forEach(r=>{const id="d-"+r.date;const o=REAL.get(id)?JSON.parse(JSON.stringify(REAL.get(id))):{date:r.date};Object.assign(o,r);o.updatedAt=new Date().toISOString();put(id,o);});
+      ta.value="";toast(rows.length+"日分を取り込みました");render();break;}
+    case "openreport":{try{const u=URL.createObjectURL(new Blob([reportHTML()],{type:"text/html;charset=utf-8"}));const w=window.open(u,"_blank");if(!w)toast("新しいタブを開けませんでした。「レポートを保存」を使ってください");}catch(e){toast("レポートを開けませんでした");}break;}
+    case "savereport":save("減薬記録_"+S.visitFrom+"_"+TODAY+".html",reportHTML());break;
+    case "savecsv":save("減薬記録_"+TODAY+".csv",csvText());break;
+    case "copysum":copy(summaryText(),"要約をコピーしました");break;
+    case "backup":save("mamelog_backup_"+TODAY+".json",JSON.stringify(Object.fromEntries(REAL),null,1));break;
+    case "copybackup":copy(JSON.stringify(Object.fromEntries(REAL)),"バックアップをコピーしました。メモ帳などに貼って保管してください");break;
+    case "wipe1":S.confirmWipe=true;render();break;
+    case "wipe0":S.confirmWipe=false;render();break;
+    case "wipe2":{S.confirmWipe=false;const ids=[...REAL.keys()];(async()=>{for(const id of ids)await remove(id);toast("すべて削除しました");render();})();break;}
+  }
+});
+document.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.dataset.danger){const o=curDay();const set=new Set(o.danger||[]);t.checked?set.add(t.dataset.danger):set.delete(t.dataset.danger);o.danger=[...set];o.updatedAt=new Date().toISOString();if(!inSample()){put("d-"+S.date,o);render();}return;}
+  if(t.dataset.stage!=null){const st=stages();const i=Number(t.dataset.stage);if(!st[i])return;st[i][t.dataset.sf]=t.dataset.sf==="dose"?(t.value===""?null:Number(t.value)):t.value;put("plan",{stages:st});render();return;}
+  if(t.id==="visit-from"&&t.value){S.visitFrom=t.value>TODAY?TODAY:t.value;render();return;}
+  if(t.id==="restore-file"&&t.files&&t.files[0]){const fr=new FileReader();fr.onload=()=>{try{const o=JSON.parse(fr.result);const keys=Object.keys(o).filter(k=>k==="plan"||k==="settings"||/^d-\d{4}-\d{2}-\d{2}$/.test(k));if(!keys.length)throw 0;S.started=true;keys.forEach(k=>put(k,o[k]));toast(keys.length+"件を戻しました");render();}catch(_){toast("このファイルは読み込めませんでした");}};fr.readAsText(t.files[0]);}
+});
+let it={};
+document.addEventListener("input",e=>{
+  const t=e.target;
+  if(t.dataset.num){const k=t.dataset.num;clearTimeout(it[k]);it[k]=setTimeout(()=>setField(k,t.value===""?"":Number(t.value),false),300);return;}
+  if(t.dataset.text){const k=t.dataset.text;clearTimeout(it[k]);it[k]=setTimeout(()=>setField(k,t.value,false),400);return;}
+  if(t.dataset.set){if(inSample())return;const k=t.dataset.set;clearTimeout(it[k]);it[k]=setTimeout(()=>{const s=Object.assign({},settings());s[k]=t.value;put("settings",s);},400);}
+});
+
+{const h=location.hash.slice(1);if(TABS.some(t=>t[0]===h))S.tab=h;}
+render();setSync();initStore();
+if("serviceWorker" in navigator&&location.protocol==="https:"){window.addEventListener("load",()=>{navigator.serviceWorker.register("sw.js").catch(()=>{});});}
+})();
+</script>
+
+</body>
+</html>
